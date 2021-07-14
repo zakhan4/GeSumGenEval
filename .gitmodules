@@ -1,0 +1,3 @@
+[submodule "emnlp19-moverscore"]
+	path = emnlp19-moverscore
+	url = https://github.com/AIPHES/emnlp19-moverscore.git

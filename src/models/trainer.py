@@ -2,7 +2,6 @@ import os
 import numpy as np
 import torch
 from tensorboardX import SummaryWriter
-
 import distributed
 # import onmt
 from models.reporter import ReportMgr
@@ -10,6 +9,7 @@ from models.stats import Statistics
 from others.logging import logger
 from others.utils import test_rouge, rouge_results_to_str
 import pandas as pd
+import json
 
 
 def _tally_parameters(model):
@@ -199,7 +199,7 @@ class Trainer(object):
             self._report_step(0, step, valid_stats=stats)
             return stats
 
-    def test(self, test_iter, step, cal_lead=False, cal_oracle=False):
+    def test(self, test_iter, step, cal_lead=False, cal_oracle=False, prune=False, corpus_type=""):
         """ Validate model.
             valid_iter: validate data iterator
         Returns:
@@ -224,35 +224,25 @@ class Trainer(object):
 
         # Removing the space before the punctuations, and <q>
         def _clean_text(txt: str) -> str:
-            txt = txt.replace(" .", ".")
-            txt = txt.replace(" ,", ",")
-            txt = txt.replace(" \"", "\"")
-            txt = txt.replace("`` ", "\"")
-            txt = txt.replace(" ''", "\"")
-            txt = txt.replace(" ?", "?")
-            txt = txt.replace(" !", "!")
-            txt = txt.replace(" :", ":")
-            txt = txt.replace(" ’", "’")
-            txt = txt.replace("<q>", " ")
+            # txt = txt.replace(" .", ".")
+            # txt = txt.replace(" ,", ",")
+            # txt = txt.replace(" \"", "\"")
+            txt = txt.replace("``", "\"")
+            txt = txt.replace("''", "\"")
+            # txt = txt.replace(" ?", "?")
+            # txt = txt.replace(" !", "!")
+            # txt = txt.replace(" :", ":")
+            # txt = txt.replace(" ’", "’")
+            txt = txt.replace("<q>", "\n")
             txt = txt.strip()
 
             return txt
 
-        summ_algo = ""
-        if not cal_lead and not cal_oracle:
-            self.model.eval()
-            summ_algo = "bertsum"
-        elif cal_lead:
-            summ_algo = "lead"
-        elif cal_oracle:
-            summ_algo = "oracle"
-
         stats = Statistics()
-
         gold = []
         pred = []
-        hypo_path = '%s/%s_step%d_hypo.csv' % (self.args.result_path, summ_algo, step)
-        ref_path = '%s/%s_step%d_ref.csv' % (self.args.result_path, summ_algo, step)
+        matchsum_original: str = ""
+        matchsum_pruned: str = ""
         with torch.no_grad():
             for batch in test_iter:
                 src = batch.src
@@ -278,40 +268,67 @@ class Trainer(object):
                     sent_scores = sent_scores + mask.float()
                     sent_scores = sent_scores.cpu().data.numpy()
                     selected_ids = np.argsort(-sent_scores, 1)
-                # selected_ids = np.sort(selected_ids,1)
+                    # selected_ids = np.sort(selected_ids,1)
                 for i, idx in enumerate(selected_ids):
                     _pred = []
                     if len(batch.src_str[i]) == 0:
                         continue
 
                     batch.tgt_str[i] = _clean_text(batch.tgt_str[i])
+                    if prune:
+                        sum_sent = batch.tgt_str[i].split("\n")
+                        text_sent = [''] * len(batch.src_str[i])
+                        for j in selected_ids[i][:len(batch.src_str[i])]:
+                            src_sent = _clean_text(batch.src_str[i][j])
+                            text_sent[idx[j]] = src_sent
 
-                    for j in selected_ids[i][:len(batch.src_str[i])]:
-                        if j >= len(batch.src_str[i]):
-                            continue
+                        matchsum_original += json.dumps({'text': text_sent, 'summary': sum_sent}) + "\n"
+                        matchsum_pruned += json.dumps({"sent_id": idx.tolist()}) + "\n"
+                    else:
+                        for j in selected_ids[i][:len(batch.src_str[i])]:
+                            if j >= len(batch.src_str[i]):
+                                continue
 
-                        candidate = _clean_text(batch.src_str[i][j])
+                            candidate = _clean_text(batch.src_str[i][j])
 
-                        if self.args.block_trigram:
-                            if not _block_tri(candidate, _pred):
+                            if self.args.block_trigram:
+                                if not _block_tri(candidate, _pred):
+                                    _pred.append(candidate)
+                            else:
                                 _pred.append(candidate)
-                        else:
-                            _pred.append(candidate)
 
-                        if (not cal_oracle) and (not self.args.recall_eval) and len(_pred) == 3:
-                            break
+                            if (not cal_oracle) and (not self.args.recall_eval) and len(_pred) == 3:
+                                break
 
-                    _pred = ' '.join(_pred)
-                    if self.args.recall_eval:
-                        _pred = ' '.join(_pred.split()[:len(batch.tgt_str[i].split())])
+                        _pred = '\n'.join(_pred)
+                        if self.args.recall_eval:
+                            _pred = ' '.join(_pred.split()[:len(batch.tgt_str[i].split())])
 
-                    pred.append(_pred)
-                    gold.append(batch.tgt_str[i])
+                        pred.append(_pred)
+                        gold.append(batch.tgt_str[i])
 
-            hypo_df = pd.DataFrame(pred, columns=["hypothesis"])
-            hypo_df.to_csv(hypo_path, index=False)
-            ref_df = pd.DataFrame(gold, columns=["references"])
-            ref_df.to_csv(ref_path, index=False)
+            if prune:
+                with open(f"{self.args.result_path}/{corpus_type}_original.jsonl", 'w') as save:
+                    save.write(matchsum_original)
+                with open(f"{self.args.result_path}/{corpus_type}_index.jsonl", 'w') as save:
+                    save.write(matchsum_pruned)
+            else:
+                summ_algo = ""
+                if not cal_lead and not cal_oracle:
+                    self.model.eval()
+                    summ_algo = "bertsum"
+                elif cal_lead:
+                    summ_algo = "lead"
+                elif cal_oracle:
+                    summ_algo = "oracle"
+
+                hypo_path = '%s/%s_hypo.csv' % (self.args.result_path, summ_algo)
+                ref_path = '%s/%s_ref.csv' % (self.args.result_path, summ_algo)
+
+                hypo_df = pd.DataFrame(pred, columns=["hypothesis"])
+                hypo_df.to_csv(hypo_path, index=False)
+                ref_df = pd.DataFrame(gold, columns=["references"])
+                ref_df.to_csv(ref_path, index=False)
 
         if step != -1 and self.args.report_rouge:
             rouges = test_rouge(self.args.temp_dir, hypo_path, ref_path)

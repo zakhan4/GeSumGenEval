@@ -165,7 +165,7 @@ def wait_and_validate(args, device_id):
 
 def validate(args,  device_id, pt, step):
     device = "cpu" if args.visible_gpus == '-1' else "cuda"
-    if (pt != ''):
+    if pt != '':
         test_from = pt
     else:
         test_from = args.test_from
@@ -173,7 +173,7 @@ def validate(args,  device_id, pt, step):
     checkpoint = torch.load(test_from, map_location=lambda storage, loc: storage)
     opt = vars(checkpoint['opt'])
     for k in opt.keys():
-        if (k in model_flags):
+        if k in model_flags:
             setattr(args, k, opt[k])
     print(args)
 
@@ -189,10 +189,10 @@ def validate(args,  device_id, pt, step):
     stats = trainer.validate(valid_iter, step)
     return stats.xent()
 
-def test(args, device_id, pt, step):
 
+def load_model(args, device_id, pt):
     device = "cpu" if args.visible_gpus == '-1' else "cuda"
-    if (pt != ''):
+    if pt != '':
         test_from = pt
     else:
         test_from = args.test_from
@@ -200,33 +200,48 @@ def test(args, device_id, pt, step):
     checkpoint = torch.load(test_from, map_location=lambda storage, loc: storage)
     opt = vars(checkpoint['opt'])
     for k in opt.keys():
-        if (k in model_flags):
+        if k in model_flags:
             setattr(args, k, opt[k])
     print(args)
 
     config = BertConfig.from_json_file(args.bert_config_path)
-    model = Summarizer(args, device, load_pretrained_bert=False, bert_config = config)
+    model = Summarizer(args, device, load_pretrained_bert=False, bert_config=config)
     model.load_cp(checkpoint)
     model.eval()
 
-    test_iter =data_loader.Dataloader(args, load_dataset(args, 'test', shuffle=False),
-                                  args.batch_size, device,
-                                  shuffle=False, is_test=True)
+    return model
+
+
+def test(args, device_id, pt, step):
+    model = load_model(args, device_id, pt)
+
+    test_iter = data_loader.Dataloader(args, load_dataset(args, 'test', shuffle=False), args.batch_size, device,
+                                       shuffle=False, is_test=True)
     trainer = build_trainer(args, device_id, model, None)
-    trainer.test(test_iter,step)
+    trainer.test(test_iter, step)
+
+
+def prune(args, device_id, pt, step):
+    model = load_model(args, device_id, pt)
+
+    datasets = ['test', 'valid', 'train']
+    for corpus_type in datasets:
+        test_iter = data_loader.Dataloader(args, load_dataset(args, corpus_type, shuffle=False), args.batch_size, device,
+                                           shuffle=False, is_test=True)
+        trainer = build_trainer(args, device_id, model, None)
+        trainer.test(test_iter, step, prune=True, corpus_type=corpus_type)
 
 
 def baseline(args, cal_lead=False, cal_oracle=False):
 
-    test_iter =data_loader.Dataloader(args, load_dataset(args, 'test', shuffle=False),
-                                  args.batch_size, device,
-                                  shuffle=False, is_test=True)
+    test_iter = data_loader.Dataloader(args, load_dataset(args, 'test', shuffle=False), args.batch_size, device,
+                                       shuffle=False, is_test=True)
 
     trainer = build_trainer(args, device_id, None, None)
     #
-    if (cal_lead):
+    if cal_lead:
         trainer.test(test_iter, 0, cal_lead=True)
-    elif (cal_oracle):
+    elif cal_oracle:
         trainer.test(test_iter, 0, cal_oracle=True)
 
 
@@ -244,14 +259,13 @@ def train(args, device_id):
         torch.cuda.set_device(device_id)
         torch.cuda.manual_seed(args.seed)
 
-
     torch.manual_seed(args.seed)
     random.seed(args.seed)
     torch.backends.cudnn.deterministic = True
 
     def train_iter_fct():
         return data_loader.Dataloader(args, load_dataset(args, 'train', shuffle=True), args.batch_size, device,
-                                                 shuffle=True, is_test=False)
+                                      shuffle=True, is_test=False)
 
     model = Summarizer(args, device, load_pretrained_bert=True)
     if args.train_from != '':
@@ -260,7 +274,7 @@ def train(args, device_id):
                                 map_location=lambda storage, loc: storage)
         opt = vars(checkpoint['opt'])
         for k in opt.keys():
-            if (k in model_flags):
+            if k in model_flags:
                 setattr(args, k, opt[k])
         model.load_cp(checkpoint)
         optim = model_builder.build_optim(args, model, checkpoint)
@@ -272,14 +286,11 @@ def train(args, device_id):
     trainer.train(train_iter_fct, args.train_steps)
 
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-
-
-    parser.add_argument("-encoder", default='classifier', type=str, choices=['classifier','transformer','rnn','baseline'])
-    parser.add_argument("-mode", default='train', type=str, choices=['train','validate','test','oracle','lead'])
+    parser.add_argument("-encoder", default='classifier', type=str, choices=['classifier', 'transformer', 'rnn', 'baseline'])
+    parser.add_argument("-mode", default='train', type=str, choices=['train', 'validate', 'test', 'oracle', 'lead', 'prune'])
     parser.add_argument("-bert_data_path", default='bert_data/cnndm')
     parser.add_argument("-model_path", default='models/')
     parser.add_argument("-result_path", default='results/cnndm')
@@ -311,8 +322,7 @@ if __name__ == '__main__':
     parser.add_argument("-world_size", default=1, type=int)
     parser.add_argument("-report_every", default=1, type=int)
     parser.add_argument("-train_steps", default=1000, type=int)
-    parser.add_argument("-recall_eval", type=str2bool, nargs='?',const=True,default=False)
-
+    parser.add_argument("-recall_eval", type=str2bool, nargs='?', const=True, default=False)
 
     parser.add_argument('-visible_gpus', default='-1', type=str)
     parser.add_argument('-gpu_ranks', default='0', type=str)
@@ -320,10 +330,10 @@ if __name__ == '__main__':
     parser.add_argument('-dataset', default='')
     parser.add_argument('-seed', default=666, type=int)
 
-    parser.add_argument("-test_all", type=str2bool, nargs='?',const=True,default=False)
+    parser.add_argument("-test_all", type=str2bool, nargs='?', const=True, default=False)
     parser.add_argument("-test_from", default='')
     parser.add_argument("-train_from", default='')
-    parser.add_argument("-report_rouge", type=str2bool, nargs='?',const=True,default=False)
+    parser.add_argument("-report_rouge", type=str2bool, nargs='?', const=True, default=False)
     parser.add_argument("-block_trigram", type=str2bool, nargs='?', const=True, default=True)
 
     args = parser.parse_args()
@@ -334,20 +344,27 @@ if __name__ == '__main__':
     device = "cpu" if args.visible_gpus == '-1' else "cuda"
     device_id = 0 if device == "cuda" else -1
 
-    if(args.world_size>1):
+    if args.world_size > 1:
         multi_main(args)
-    elif (args.mode == 'train'):
+    elif args.mode == 'train':
         train(args, device_id)
-    elif (args.mode == 'validate'):
+    elif args.mode == 'validate':
         wait_and_validate(args, device_id)
-    elif (args.mode == 'lead'):
+    elif args.mode == 'lead':
         baseline(args, cal_lead=True)
-    elif (args.mode == 'oracle'):
+    elif args.mode == 'oracle':
         baseline(args, cal_oracle=True)
-    elif (args.mode == 'test'):
+    elif args.mode == 'test':
         cp = args.test_from
         try:
             step = int(cp.split('.')[-2].split('_')[-1])
         except:
             step = 0
         test(args, device_id, cp, step)
+    elif args.mode == 'prune':
+        cp = args.test_from
+        try:
+            step = int(cp.split('.')[-2].split('_')[-1])
+        except:
+            step = 0
+        prune(args, device_id, cp, step)
