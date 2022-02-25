@@ -30,7 +30,7 @@ The models have been trained on these data-sets:
 [Trained Models](https://drive.google.com/drive/folders/1FzMNzBHCZPvMHBgfhjesOyF8YRjzxKQ7)
 
 ## Results
-### Performance of summarization systems on MLSUM test set given automatic evaluation mean scores
+#### Performance of summarization systems on MLSUM test set given automatic evaluation mean scores
 | Summary  | ROUGE-1  | ROUGE-2  | ROUGE-L  | BLEU     | METEOR   | BERT-Score | Mover-Score | BLANC    | JS       |
 | -------- | -------- | -------- | -------- | -------- | -------- | ---------- | ----------- | -------- | -------- |
 | Random-3 | 0.143727 | 0.052665 | 0.127002 | 0.034043 | 0.10386  | 0.565969   | 0.51261     | 0.070865 | 0.359637 |
@@ -40,7 +40,7 @@ The models have been trained on these data-sets:
 | MatchSum | **0.419047** | **0.33233**  | **0.389656** | **0.326003** | 0.241537 | **0.690606**   | **0.607968**    | 0.03716  | **0.430846** |
 | Oracle   | 0.552275 | 0.434004 | 0.513012 | 0.379408 | 0.320451 | 0.760874   | 0.676651    | 0.043763 | 0.417275 |
 
-###  Performance of summarization systems on a sample of 60 article/summary pairs from MLSUM test set given human evaluation mean scores
+####  Performance of summarization systems on a sample of 60 article/summary pairs from MLSUM test set given human evaluation mean scores
 | Summary  | Overall Quality | Coherence | Readability | Fluency | Informativeness |
 | -------- | --------------- | --------- | ----------- | ------- | --------------- |
 | TextRank | 3.37            | 3.25      | 3.68        | 3.51    | 2.67            |
@@ -48,7 +48,7 @@ The models have been trained on these data-sets:
 | MatchSum | **3.85**            | 3.49      | 4.22        | 3.78    | **3.11**            |
 | Expert   | 3.84            | **3.65**      | **4.33**        | **3.98**    | 3.07            |
 
-### Performance of summarization systems on GeWiki test set given automatic evaluation mean scores
+#### Performance of summarization systems on GeWiki test set given automatic evaluation mean scores
 | Summary  | ROUGE-   | ROUGE-2  | ROUGE-L   | BLEU     | METEOR   | BERT-Score | Mover-Score  | Blanc     | JS       |
 | -------- | -------- | -------- | --------- | -------- | -------- | ---------- | ------------ | --------- | -------- |
 | Random-3 | 0.186969 | 0.061311 | 0.148257  | 2.353784 | 0.118362 | 0.568394   | 0.513921     | **0.136810**  | 0.338470 |
@@ -58,7 +58,7 @@ The models have been trained on these data-sets:
 | MatchSum | 0.252041 | 0.100066 | 0.2017617 | 3.991012 | 0.128695 | 0.6085708  | 0.524253     | 0.106179  | **0.378945** |
 | Oracle   | 0.383839 | 0.201093 | 0.3066306 | 10.48782 | 0.163482 | 0.6645835  | 0.543972     | 0.092569  | 0.398871 |
 
-### Accuracy of Quality Estimation models trained on expert annotations for a sample of 320 article/summary pairs from CNN/DM                                
+#### Accuracy of Quality Estimation models trained on expert annotations for a sample of 320 article/summary pairs from CNN/DM                                
 | Coherence       | Consistency    | Fluency | Relevance | 
 | ----------------| -------------- | ------- | --------- | 
 | 41.56%          | **80.94%**     | 70.00%  | 54.37%    | 
