@@ -2,8 +2,10 @@ import nltk
 import json
 import pandas as pd
 from prepro import data_builder
-from train import test_from_outside
+from prepro import get_candidate
+from train import test_from_outside, prune
 from others.logging import logger, init_logger
+from train_matching import test_model
 
 
 class clsprops:
@@ -26,7 +28,7 @@ def data_prep_for_BertSum(texts: list, save_path: str) -> None:
         dataset_json.append({'src': src_tokens, 'tgt': tgt_tokens})
 
     if (len(dataset_json) > 0):
-        pt_file = "{:s}/{:s}.{:d}.json".format("../json_data/temp", "test", 0)
+        pt_file = "{:s}/{:s}.{:d}.json".format(save_path, "test", 0)
         with open(pt_file, 'w') as save:
             save.write(json.dumps(dataset_json))
 
@@ -63,3 +65,12 @@ def summarize_with_bertsum(texts: list) -> list:
                  'train_steps': 1000, 'gpu_ranks': '0', 'dataset': '', 'seed': 666, 'test_all': False, 'train_from': '',
                  'report_rouge': False, 'block_trigram': True}
     test_from_outside(clsprops(test_args))
+
+
+#def summarize_with_matchsum(texts: list) -> list:
+#    summarize_with_bertsum(texts)
+
+#    prune()
+#    get_candidate.get_candidates_mp()
+#    test_model()
+
