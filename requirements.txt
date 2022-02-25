@@ -1,7 +1,7 @@
 cytoolz==0.11.0
 datasets==1.7.0
 dill==0.3.3
-./emnlp19-moverscore
+../emnlp19-moverscore
 FastNLP==0.6.0
 multiprocess==0.70.11.1
 numpy==1.20.3

@@ -211,6 +211,17 @@ def load_model(args, device_id, pt):
 
     return model
 
+def test_from_outside(args):
+    global device
+    device = "cpu" if args.visible_gpus == '-1' else "cuda"
+    device_id = 0 if device == "cuda" else -1
+    cp = args.test_from
+    try:
+        step = int(cp.split('.')[-2].split('_')[-1])
+    except:
+        step = 0
+
+    test(args, device_id, cp, step)
 
 def test(args, device_id, pt, step):
     model = load_model(args, device_id, pt)
